@@ -1,0 +1,32 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+    database: mysql
+
+  webclient:
+    connect-timeout: 3000
+    read-timeout: 5000
+
+goldapi:
+  key: ${GOLD_API_KEY}
+  base-url: https://www.goldapi.io/
+  currency: USD
+
+openai:
+  base-url: https://openrouter.ai/api/v1
+  key: ${OPENROUTER_API_KEY}
+  model: openai/gpt-oss-20b:free
+
+
