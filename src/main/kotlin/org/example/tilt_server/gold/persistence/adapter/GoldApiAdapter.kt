@@ -34,4 +34,21 @@ class GoldApiAdapter(
             low = response.low ?: 0.0
         )
     }
+
+    fun getGoldPriceByDate(date: String): GoldPrice {
+        val response = client.get()
+            .uri("/XAU/USD/$date")
+            .retrieve()
+            .bodyToMono(GoldApiResponse::class.java)
+            .block() ?: throw RuntimeException("금 시세 조회 실패")
+
+        return GoldPrice(
+            price = response.price ?: 0.0,
+            currency = response.currency ?: "",
+            timestamp = response.timestamp ?: 0L,
+            open = response.open ?: 0.0,
+            high = response.high ?: 0.0,
+            low = response.low ?: 0.0
+        )
+    }
 }
