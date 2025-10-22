@@ -7,9 +7,9 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/gold")
-class GoldController (
+class GoldController(
     private val goldFacade: GoldFacade
-){
+) {
     @GetMapping("/price")
     fun getGold() = goldFacade.getGoldInfo()
 }
