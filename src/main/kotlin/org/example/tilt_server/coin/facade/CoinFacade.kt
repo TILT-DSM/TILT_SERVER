@@ -1,7 +1,7 @@
 package org.example.tilt_server.coin.facade
 
 import org.example.tilt_server.coin.service.GetCoinPriceService
-import org.example.tilt_server.gold.service.GoogleNewsService // Reusing GoogleNewsService
+import org.example.tilt_server.gold.service.GoogleNewsService
 import org.springframework.stereotype.Component
 
 @Component
