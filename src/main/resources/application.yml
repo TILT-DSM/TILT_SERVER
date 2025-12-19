@@ -29,4 +29,13 @@ openai:
   key: ${OPENROUTER_API_KEY}
   model: mistralai/mistral-7b-instruct:free
 
+exchangeapi:
+  key: ${EXCHANGE_API_KEY}
+  base-url: https://www.koreaexim.go.kr/
+
+realestate:
+  api:
+    key: ${REALESTATE_API_KEY}
+    base-url: https://api.vworld.kr/
+
 
