@@ -8,7 +8,7 @@ import org.springframework.web.reactive.function.client.WebClient
 
 @Component
 class RealEstateApiAdapter(
-    @Value("\${realstate.api.key}") private val apiKey: String,
+    @Value("\${realestate.api.key}") private val apiKey: String,
     private val webClientBuilder: WebClient.Builder
 ): RealEstatePort {
 
