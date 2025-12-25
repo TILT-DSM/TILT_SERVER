@@ -1,7 +1,7 @@
 package org.example.tilt_server.gold.persistence.adapter
 
 import org.example.tilt_server.gold.entity.GoldPrice
-import org.example.tilt_server.gold.persistence.dto.GoldApiResponse
+import org.example.tilt_server.gold.persistence.dto.GoldApiRawResponse
 import org.example.tilt_server.gold.port.out.GoldPricePort
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
@@ -22,33 +22,29 @@ class GoldApiAdapter(
         val response = client.get()
             .uri("/XAU/USD")
             .retrieve()
-            .bodyToMono(GoldApiResponse::class.java)
+            .bodyToMono(GoldApiRawResponse::class.java)
             .block() ?: throw RuntimeException("금 시세 조회 실패")
 
-        return GoldPrice(
-            price = response.price ?: 0.0,
-            currency = response.currency ?: "",
-            timestamp = response.timestamp ?: 0L,
-            open = response.open ?: 0.0,
-            high = response.high ?: 0.0,
-            low = response.low ?: 0.0
-        )
+        return response.toEntity()
     }
 
     fun getGoldPriceByDate(date: String): GoldPrice {
         val response = client.get()
             .uri("/XAU/USD/$date")
             .retrieve()
-            .bodyToMono(GoldApiResponse::class.java)
+            .bodyToMono(GoldApiRawResponse::class.java)
             .block() ?: throw RuntimeException("금 시세 조회 실패")
 
-        return GoldPrice(
-            price = response.price ?: 0.0,
-            currency = response.currency ?: "",
-            timestamp = response.timestamp ?: 0L,
-            open = response.open ?: 0.0,
-            high = response.high ?: 0.0,
-            low = response.low ?: 0.0
-        )
+        return response.toEntity()
     }
+
+    private fun GoldApiRawResponse.toEntity(): GoldPrice =
+        GoldPrice(
+            price = price ?: 0.0,
+            currency = currency ?: "USD",
+            timestamp = timestamp ?: 0L,
+            open = open,
+            high = high,
+            low = low
+        )
 }

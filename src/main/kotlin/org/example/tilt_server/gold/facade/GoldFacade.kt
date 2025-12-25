@@ -1,22 +1,24 @@
 package org.example.tilt_server.gold.facade
 
+import org.example.tilt_server.gold.persistence.dto.GoldApiResponse
 import org.example.tilt_server.gold.service.GetGoldPriceService
-import org.example.tilt_server.gold.service.GoogleNewsService
+import org.example.tilt_server.gold.service.GoldNewsService
 import org.springframework.stereotype.Component
 
 @Component
 class GoldFacade(
     private val getGoldPriceService: GetGoldPriceService,
-    private val googleNewsService: GoogleNewsService
+    private val goldNewsService: GoldNewsService
 ) {
-    fun getGoldInfo(): Map<String, Any> {
-        val result = getGoldPriceService.execute()
-        val news = googleNewsService.getGoldNews()
 
-        return mapOf(
-            "data" to result.data,
-            "analysis" to result.analysis,
-            "news" to news
+    fun getGoldInfo(): GoldApiResponse {
+        val result = getGoldPriceService.execute()
+        val news = goldNewsService.getGoldNews()
+
+        return GoldApiResponse(
+            data = result.goldPrice,   // ✅ 여기 핵심
+            analysis = result.analysis,
+            news = news
         )
     }
 }

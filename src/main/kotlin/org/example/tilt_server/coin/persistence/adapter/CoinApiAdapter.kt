@@ -2,8 +2,6 @@ package org.example.tilt_server.coin.persistence.adapter
 
 import org.example.tilt_server.coin.domain.CoinInfo
 import org.example.tilt_server.coin.persistence.dto.CoinGeckoHistoryResponse
-import org.example.tilt_server.coin.persistence.dto.CoinGeckoSimplePriceResponse
-import org.example.tilt_server.coin.persistence.dto.CoinGeckoSimplePriceWrapper
 import org.example.tilt_server.coin.port.out.CoinPricePort
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
@@ -19,7 +17,7 @@ class CoinApiAdapter : CoinPricePort {
         .baseUrl("https://api.coingecko.com/api/v3")
         .build()
 
-    // A simple mapping from common coin symbols to CoinGecko IDs
+    // Coin symbol → CoinGecko ID
     private val coinIdMap = mapOf(
         "BTC" to "bitcoin",
         "ETH" to "ethereum",
@@ -33,7 +31,7 @@ class CoinApiAdapter : CoinPricePort {
         "BNB" to "binancecoin",
         "USDC" to "usd-coin",
         "USDT" to "tether",
-        "stETH" to "staked-ether",
+        "STETH" to "staked-ether",   // ❗ 대문자로 수정
         "AVAX" to "avalanche-2",
         "SHIB" to "shiba-inu",
         "WBTC" to "wrapped-bitcoin",
@@ -47,46 +45,59 @@ class CoinApiAdapter : CoinPricePort {
         "XLM" to "stellar"
     )
 
-    private fun getCoinGeckoId(coinSymbol: String): String {
-        return coinIdMap[coinSymbol.uppercase()] ?: throw IllegalArgumentException("Unsupported coin symbol: $coinSymbol")
-    }
+    private fun getCoinGeckoId(symbol: String): String =
+        coinIdMap[symbol.uppercase()]
+            ?: throw IllegalArgumentException("Unsupported coin symbol: $symbol")
 
+    /**
+     * 현재 코인 시세 조회
+     * - simple/price API는 OHLC 제공 ❌
+     * - timestamp는 조회 시점 기준
+     */
     override fun getCoinPrice(coinSymbol: String): CoinInfo {
         val coinId = getCoinGeckoId(coinSymbol)
-        val responseMap = client.get()
-            .uri("/simple/price?ids=$coinId&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true")
-            .retrieve()
-            .bodyToMono(Map::class.java) // Read as a Map because the root key is dynamic
-            .block() as Map<String, Map<String, Any>>? ?: throw RuntimeException("코인 시세 조회 실패: $coinSymbol")
 
-        val coinData = responseMap?.get(coinId) ?: throw RuntimeException("코인 데이터 없음: $coinSymbol")
+        val response = client.get()
+            .uri(
+                "/simple/price" +
+                        "?ids=$coinId" +
+                        "&vs_currencies=usd" +
+                        "&include_market_cap=true" +
+                        "&include_24hr_vol=true" +
+                        "&include_24hr_change=true"
+            )
+            .retrieve()
+            .bodyToMono(Map::class.java)
+            .block() as? Map<String, Map<String, Any>>
+            ?: throw RuntimeException("코인 시세 조회 실패: $coinSymbol")
+
+        val coinData = response[coinId]
+            ?: throw RuntimeException("코인 데이터 없음: $coinSymbol")
 
         val price = (coinData["usd"] as? Number)?.toDouble() ?: 0.0
         val marketCap = (coinData["usd_market_cap"] as? Number)?.toDouble()
         val volume = (coinData["usd_24h_vol"] as? Number)?.toDouble()
-        val change24h = (coinData["usd_24h_change"] as? Number)?.toDouble()
-
-        // CoinGecko simple price doesn't directly provide open, high, low, or a specific timestamp for a single point.
-        // We can approximate or use a different endpoint if more precise historical OHLCV data is needed.
-        // For simplicity, using current price as open, high, low if not available.
-        val currentTimestamp = Instant.now().epochSecond
 
         return CoinInfo(
             symbol = coinSymbol.uppercase(),
             price = price,
             currency = "USD",
-            timestamp = currentTimestamp,
-            open = price, // Approximation
-            high = price, // Approximation
-            low = price,  // Approximation
+            timestamp = Instant.now().epochSecond, // 조회 시점 기준
+            open = null,
+            high = null,
+            low = null,
             volume = volume,
             marketCap = marketCap
         )
     }
 
+    /**
+     * 특정 날짜 코인 시세 조회
+     * - date 형식: yyyy-MM-dd
+     */
     override fun getCoinPriceByDate(coinSymbol: String, date: String): CoinInfo? {
         val coinId = getCoinGeckoId(coinSymbol)
-        // CoinGecko history API uses date format dd-mm-yyyy
+
         val formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
         val formattedDate = LocalDate.parse(date).format(formatter)
 
@@ -97,22 +108,22 @@ class CoinApiAdapter : CoinPricePort {
             .block() ?: return null
 
         val usdPrice = response.marketData?.currentPrice?.get("usd")
+            ?: return null
 
-        return if (usdPrice != null) {
-            val historicalTimestamp = LocalDate.parse(date).atStartOfDay(ZoneOffset.UTC).toEpochSecond()
-            CoinInfo(
-                symbol = coinSymbol.uppercase(),
-                price = usdPrice,
-                currency = "USD",
-                timestamp = historicalTimestamp,
-                open = usdPrice, // Approximation
-                high = usdPrice, // Approximation
-                low = usdPrice,  // Approximation
-                volume = response.marketData.totalVolume?.get("usd"),
-                marketCap = response.marketData.marketCap?.get("usd")
-            )
-        } else {
-            null
-        }
+        val timestamp = LocalDate.parse(date)
+            .atStartOfDay(ZoneOffset.UTC)
+            .toEpochSecond()
+
+        return CoinInfo(
+            symbol = coinSymbol.uppercase(),
+            price = usdPrice,
+            currency = "USD",
+            timestamp = timestamp,
+            open = null,
+            high = null,
+            low = null,
+            volume = response.marketData.totalVolume?.get("usd"),
+            marketCap = response.marketData.marketCap?.get("usd")
+        )
     }
 }

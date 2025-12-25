@@ -1,4 +1,4 @@
-package org.example.tilt_server.exchange.service
+package org.example.tilt_server.gold.service
 
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service
 import org.springframework.web.reactive.function.client.WebClient
 
 @Service
-class ExchangeNewsService(
+class GoldNewsService(
     @Value("\${newsapi.key}") private val apiKey: String
 ) {
 
@@ -17,12 +17,12 @@ class ExchangeNewsService(
         .defaultHeader("User-Agent", "Mozilla/5.0")
         .build()
 
-    fun getExchangeRateNews(currencyCode: String): List<Map<String, String>> {
+    fun getGoldNews(): List<Map<String, String>> {
         return try {
             val response = client.get()
                 .uri {
                     it.path("/everything")
-                        .queryParam("q", "$currencyCode exchange rate")
+                        .queryParam("q", "gold price OR gold market")
                         .queryParam("language", "en")
                         .queryParam("sortBy", "publishedAt")
                         .queryParam("pageSize", 5)
@@ -35,7 +35,7 @@ class ExchangeNewsService(
 
             val articles = response["articles"] as? List<Map<*, *>> ?: emptyList()
 
-            log.info("NEWS RAW = {}", articles)
+            log.info("GOLD NEWS RAW = {}", articles)
 
             articles.map {
                 mapOf(
@@ -45,7 +45,7 @@ class ExchangeNewsService(
             }
 
         } catch (e: Exception) {
-            log.error("NEWS API ERROR", e)
+            log.error("GOLD NEWS API ERROR", e)
             emptyList()
         }
     }

@@ -5,9 +5,9 @@ data class CoinInfo(
     val price: Double,
     val currency: String, // e.g., "USD"
     val timestamp: Long,
-    val open: Double,
-    val high: Double,
-    val low: Double,
+    val open: Double?,
+    val high: Double?,
+    val low: Double?,
     val volume: Double? = null,
     val marketCap: Double? = null
 )

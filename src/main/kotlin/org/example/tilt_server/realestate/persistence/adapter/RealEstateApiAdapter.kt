@@ -1,6 +1,5 @@
 package org.example.tilt_server.realestate.persistence.adapter
 
-import org.example.tilt_server.realestate.domain.RealEstatePrice
 import org.example.tilt_server.realestate.port.out.RealEstatePort
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
@@ -8,28 +7,31 @@ import org.springframework.web.reactive.function.client.WebClient
 
 @Component
 class RealEstateApiAdapter(
-    @Value("\${realestate.api.key}") private val apiKey: String,
-    private val webClientBuilder: WebClient.Builder
-): RealEstatePort {
+    @Value("\${realestate.api.key}") private val apiKey: String
+) {
 
     private val client = WebClient.builder()
-        .baseUrl("https://api.odcloud.kr/api/15058249/v1")
+        .baseUrl("https://apis.data.go.kr")
         .build()
 
-    override fun getRealEstatePrice(regionCode: String): RealEstatePrice {
-        val response = client.get()
+    fun fetchAptTradeRawData(
+        lawdCd: String,
+        dealYmd: String
+    ): String {
+
+        return client.get()
             .uri {
-                it.path("/getRTMSDataSvcAptTradeDev")
-                    .queryParam("LAWD_CD", regionCode)
-                    .queryParam("DEAL_YMD", "202510")
+                it.path("/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade")
                     .queryParam("serviceKey", apiKey)
+                    .queryParam("LAWD_CD", lawdCd)
+                    .queryParam("DEAL_YMD", dealYmd)
+                    .queryParam("numOfRows", 1000)
+                    .queryParam("pageNo", 1)
                     .build()
             }
             .retrieve()
             .bodyToMono(String::class.java)
             .block()
-
-        return RealEstatePrice(regionCode = regionCode, rawData = response ?: "no data")
+            ?: throw RuntimeException("국토부 API 응답 없음")
     }
-
 }

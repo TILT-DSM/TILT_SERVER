@@ -1,30 +1,34 @@
-package org.example.tilt_server.exchange.service
+package org.example.tilt_server.coin.service
 
-import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.web.reactive.function.client.WebClient
 
 @Service
-class ExchangeNewsService(
+class CoinNewsService(
     @Value("\${newsapi.key}") private val apiKey: String
 ) {
-
-    private val log = LoggerFactory.getLogger(this::class.java)
 
     private val client = WebClient.builder()
         .baseUrl("https://newsapi.org/v2")
         .defaultHeader("User-Agent", "Mozilla/5.0")
         .build()
 
-    fun getExchangeRateNews(currencyCode: String): List<Map<String, String>> {
+    fun getCoinNews(symbol: String): List<Map<String, String>> {
+        val keyword = when (symbol.uppercase()) {
+            "BTC" -> "Bitcoin"
+            "ETH" -> "Ethereum"
+            "XRP" -> "Ripple"
+            else -> symbol
+        }
+
         return try {
             val response = client.get()
                 .uri {
-                    it.path("/everything")
-                        .queryParam("q", "$currencyCode exchange rate")
+                    it.path("/top-headlines")
+                        .queryParam("q", keyword)
+                        .queryParam("category", "business")
                         .queryParam("language", "en")
-                        .queryParam("sortBy", "publishedAt")
                         .queryParam("pageSize", 5)
                         .queryParam("apiKey", apiKey)
                         .build()
@@ -35,8 +39,6 @@ class ExchangeNewsService(
 
             val articles = response["articles"] as? List<Map<*, *>> ?: emptyList()
 
-            log.info("NEWS RAW = {}", articles)
-
             articles.map {
                 mapOf(
                     "title" to it["title"].toString(),
@@ -44,8 +46,7 @@ class ExchangeNewsService(
                 )
             }
 
-        } catch (e: Exception) {
-            log.error("NEWS API ERROR", e)
+        } catch (_: Exception) {
             emptyList()
         }
     }
