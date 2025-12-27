@@ -11,7 +11,9 @@ import java.time.format.DateTimeFormatter
 @Service
 class GetRealEstateSummaryService(
     private val realEstateApiAdapter: RealEstateApiAdapter,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val realEstateNewsService: RealEstateNewsService,
+    private val realEstateAnalysisService: RealEstateAnalysisService
 ) {
 
     fun execute(regionCode: String): RealEstateSummary {
@@ -56,10 +58,23 @@ class GetRealEstateSummaryService(
         val averagePrice =
             if (count > 0) totalPrice / count else 0
 
+        // 🔥 뉴스 조회
+        val news = realEstateNewsService.getRealEstateNews(regionCode)
+
+        // 🔥 AI 분석
+        val analysis = realEstateAnalysisService.analyze(
+            regionCode = regionCode,
+            averagePrice = averagePrice,
+            transactionCount = count,
+            newsTitles = news.map { it["title"].orEmpty() }
+        )
+
         return RealEstateSummary(
             regionCode = regionCode,
             averagePrice = averagePrice,
-            transactionCount = count
+            transactionCount = count,
+            news = news,
+            analysis = analysis
         )
     }
 
