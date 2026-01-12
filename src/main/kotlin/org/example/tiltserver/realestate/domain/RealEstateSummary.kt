@@ -4,6 +4,6 @@ data class RealEstateSummary(
     val regionCode: String,
     val averagePrice: Int,
     val transactionCount: Int,
-    val news: List<Map<String, String>>,
-    val analysis: String
+    val analysis: String,
+    val news: List<Map<String, String>>
 )
