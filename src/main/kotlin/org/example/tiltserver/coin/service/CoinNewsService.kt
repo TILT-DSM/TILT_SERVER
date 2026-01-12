@@ -25,9 +25,8 @@ class CoinNewsService(
         return try {
             val response = client.get()
                 .uri {
-                    it.path("/top-headlines")
+                    it.path("/everything")
                         .queryParam("q", keyword)
-                        .queryParam("category", "business")
                         .queryParam("language", "en")
                         .queryParam("pageSize", 5)
                         .queryParam("apiKey", apiKey)
