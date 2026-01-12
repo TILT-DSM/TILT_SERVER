@@ -3,6 +3,7 @@ package org.example.tiltserver.coin.persistence.adapter
 import org.example.tiltserver.coin.domain.CoinInfo
 import org.example.tiltserver.coin.persistence.dto.CoinGeckoHistoryResponse
 import org.example.tiltserver.coin.port.out.CoinPricePort
+import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
 import java.time.Instant
@@ -11,6 +12,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 @Component
+@Cacheable
 class CoinApiAdapter : CoinPricePort {
 
     private val client = WebClient.builder()
@@ -49,11 +51,7 @@ class CoinApiAdapter : CoinPricePort {
         coinIdMap[symbol.uppercase()]
             ?: throw IllegalArgumentException("Unsupported coin symbol: $symbol")
 
-    /**
-     * 현재 코인 시세 조회
-     * - simple/price API는 OHLC 제공 ❌
-     * - timestamp는 조회 시점 기준
-     */
+    @Cacheable(cacheNames = ["coinToday"], key = "#coinSymbol.toUpperCase()")
     override fun getCoinPrice(coinSymbol: String): CoinInfo {
         val coinId = getCoinGeckoId(coinSymbol)
 
@@ -91,10 +89,7 @@ class CoinApiAdapter : CoinPricePort {
         )
     }
 
-    /**
-     * 특정 날짜 코인 시세 조회
-     * - date 형식: yyyy-MM-dd
-     */
+    @Cacheable(cacheNames = ["coinByDate"], key = "#coinSymbol.toUpperCase() + ':' + #date")
     override fun getCoinPriceByDate(coinSymbol: String, date: String): CoinInfo? {
         val coinId = getCoinGeckoId(coinSymbol)
 
