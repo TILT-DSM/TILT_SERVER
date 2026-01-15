@@ -20,52 +20,65 @@ class GoldApiAdapter(
         .baseUrl("https://api.metalpriceapi.com")
         .build()
 
+    // 🔒 마지막으로 성공한 금 가격 (fallback 용)
+    @Volatile
+    private var lastValidGoldPrice: Double = 4615.0
+
     override fun getGoldPrice(): GoldPrice {
-        // 🔥 1) RAW JSON 먼저 받기
-        val rawJson = client.get()
-            .uri {
-                it.path("/v1/latest")
-                    .queryParam("api_key", apiKey)
-                    .queryParam("base", "USD")
-                    .queryParam("currencies", "XAU")
-                    .build()
+        return try {
+            val rawJson = client.get()
+                .uri {
+                    it.path("/v1/latest")
+                        .queryParam("api_key", apiKey)
+                        .queryParam("base", "USD")
+                        .queryParam("currencies", "XAU")
+                        .build()
+                }
+                .retrieve()
+                .bodyToMono(String::class.java)
+                .block()
+
+            if (rawJson.isNullOrBlank()) {
+                log.warn("METALPRICE RAW RESPONSE EMPTY → fallback")
+                return fallbackPrice()
             }
-            .retrieve()
-            .bodyToMono(String::class.java)
-            .block() ?: throw IllegalStateException("MetalPrice API returned null")
 
-        log.info("METALPRICE RAW RESPONSE = {}", rawJson)
+            log.info("METALPRICE RAW RESPONSE = {}", rawJson)
 
-        // 🔥 2) JSON → DTO 수동 변환
-        val mapper = jacksonObjectMapper()
-        val response = mapper.readValue(rawJson, GoldApiRawResponse::class.java)
+            val mapper = jacksonObjectMapper()
+            val response = mapper.readValue(rawJson, GoldApiRawResponse::class.java)
 
-        // 🔥 3) API 실패 응답 차단
-        require(response.success != false) {
-            "MetalPrice API error response: $rawJson"
+            response.toEntityWithFallback()
+
+        } catch (e: Exception) {
+            log.warn("METALPRICE ERROR → fallback", e)
+            fallbackPrice()
         }
-
-        return response.toEntity()
     }
 
-    private fun GoldApiRawResponse.toEntity(): GoldPrice {
+    private fun GoldApiRawResponse.toEntityWithFallback(): GoldPrice {
         val xauRate = rates?.XAU
-            ?: throw IllegalStateException("XAU rate missing in response")
 
-        require(xauRate.isFinite() && xauRate > 0.0) {
-            "Invalid XAU rate: $xauRate"
-        }
-
-        val usdPerXau = 1.0 / xauRate
-
-        require(usdPerXau.isFinite() && usdPerXau > 0.0) {
-            "Invalid USD/XAU price computed: $usdPerXau (rate=$xauRate)"
+        val usdPerXau = if (xauRate == null || !xauRate.isFinite() || xauRate <= 0.0) {
+            log.warn("XAU rate missing or invalid → fallback")
+            lastValidGoldPrice
+        } else {
+            val price = 1.0 / xauRate
+            lastValidGoldPrice = price
+            price
         }
 
         return GoldPrice(
             price = usdPerXau,
             currency = "USD",
-            timestamp = timestamp ?: 0L
+            timestamp = timestamp ?: (System.currentTimeMillis() / 1000)
         )
     }
+
+    private fun fallbackPrice(): GoldPrice =
+        GoldPrice(
+            price = lastValidGoldPrice,
+            currency = "USD",
+            timestamp = System.currentTimeMillis() / 1000
+        )
 }
