@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.web.reactive.function.client.WebClient
+import org.springframework.web.reactive.function.client.WebClientResponseException
+import java.util.concurrent.ConcurrentHashMap
 
 @Service
 class RealEstateAnalysisService(
@@ -13,13 +15,53 @@ class RealEstateAnalysisService(
     @Value("\${openai.model:mistralai/mistral-7b-instruct:free}")
     private lateinit var model: String
 
+    private val cache = ConcurrentHashMap<String, CacheEntry>()
+    private val locks = ConcurrentHashMap<String, Any>()
+    private val ttlNormalMillis = 10 * 60 * 1000L
+    private val ttlTooManyMillis = 24 * 60 * 60 * 1000L
+
     fun analyze(
         regionCode: String,
         averagePrice: Int,
         transactionCount: Int,
         newsTitles: List<String>
     ): String {
-        // 🔥 숫자는 미리 계산해서 문자열로 만든다
+        val key = buildCacheKey(regionCode, averagePrice, transactionCount, newsTitles)
+        val now = System.currentTimeMillis()
+        cache[key]?.takeIf { now < it.expiresAt }?.let { return it.value }
+
+        val lock = locks.computeIfAbsent(key) { Any() }
+        synchronized(lock) {
+            val refreshedNow = System.currentTimeMillis()
+            cache[key]?.takeIf { refreshedNow < it.expiresAt }?.let { return it.value }
+
+            val (value, ttl) = try {
+                val result = requestAnalysis(regionCode, averagePrice, transactionCount, newsTitles)
+                result to ttlNormalMillis
+            } catch (e: WebClientResponseException) {
+                if (e.statusCode.value() == 429) {
+                    // Too many requests: cache for 24 hours to avoid further calls today.
+                    "오늘 AI 요약 제공 한도 초과" to ttlTooManyMillis
+                } else {
+                    formatErrorMessage(e) to ttlNormalMillis
+                }
+            } catch (e: Exception) {
+                formatErrorMessage(e) to ttlNormalMillis
+            }
+
+            // Cache for 10 minutes (or 24 hours on 429) to prevent repeated calls.
+            cache[key] = CacheEntry(value, refreshedNow + ttl)
+            return value
+        }
+    }
+
+    private fun requestAnalysis(
+        regionCode: String,
+        averagePrice: Int,
+        transactionCount: Int,
+        newsTitles: List<String>
+    ): String {
+        //  숫자는 미리 계산해서 문자열로 만든다
         val formattedPrice = "%,d".format(averagePrice)
 
         val newsContext =
@@ -79,4 +121,28 @@ $newsContext
             "AI 분석 실패 (${e.message})"
         }
     }
+
+    private fun buildCacheKey(
+        regionCode: String,
+        averagePrice: Int,
+        transactionCount: Int,
+        newsTitles: List<String>
+    ): String {
+        val newsHash = newsTitles.joinToString("|").hashCode()
+        return "r=$regionCode|p=$averagePrice|c=$transactionCount|n=$newsHash"
+    }
+
+    private fun formatErrorMessage(e: Exception): String {
+        val detail = if (e is WebClientResponseException) {
+            "status=${e.statusCode}, body=${e.responseBodyAsString}"
+        } else {
+            e.message
+        }
+        return "AI 분석 실패 ($detail)"
+    }
+
+    private data class CacheEntry(
+        val value: String,
+        val expiresAt: Long
+    )
 }

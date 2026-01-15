@@ -57,11 +57,11 @@ class GoldAnalysisService(
 
     private fun requestAnalysis(price: Double, trend: String, diff: Double): String {
         val prompt = """
-?„ìž¬ êµ? œ ê¸??œì„¸??$${"%,.2f".format(price)} USD?…ë‹ˆ??
-ìµœê·¼ 1ì£¼ì¼ ?‰ê·  ?€ë¹?${"%.2f".format(diff)}% ${trend}ë¥?ë³´ì´ê³??ˆìŠµ?ˆë‹¤.
-???•ë³´ë¥?ë°”íƒ•?¼ë¡œ ê¸??œìž¥???ë¦„???ì„¸ ë¬¸ìž¥?¼ë¡œ ê°„ë‹¨???”ì•½?˜ì„¸??
-?„ìž¬ ê¸ˆë¦¬, ?¬ëŸ¬ ?˜ìœ¨, ?¸í”Œ?ˆì´????ê²½ì œ ?”ì¸??ê³ ë ¤?˜ë˜
-ë¶ˆí•„?”í•œ ?ˆì‹œ ë¬¸ìž¥?´ë‚˜ ê´„í˜¸, ?°ì˜´???†ì´ ?ì—°?¤ëŸ½ê²??‘ì„±?˜ì„¸??
+현재 국제 금 시세는 ${'$'}{"%,.2f".format(price)} USD입니다.
+최근 1주일 평균 대비 ${'$'}{"%.2f".format(diff)}% ${'$'}{trend}를 보이고 있습니다.
+이 정보를 바탕으로 금 시장의 흐름을 두세 문장으로 간단히 요약하세요.
+현재 금리, 달러 환율, 인플레이션 등 경제 요인을 고려하되,
+불필요한 예시 문장이나 괄호, 따옴표 없이 자연스럽게 작성하세요.
         """.trimIndent()
 
         val requestBody = mapOf(
@@ -95,7 +95,7 @@ class GoldAnalysisService(
             ?.replace(Regex("[a-zA-Z]{1,6}\\.$"), "")
             ?.trim()
             ?.takeIf { it.isNotBlank() }
-            ?: "AI ë¶„ì„ ?¤íŒ¨"
+            ?: "AI ë¶„ì„ ?¤íŒ¨"
     }
 
     private fun buildCacheKey(price: Double, trend: String, diff: Double): String {
@@ -113,7 +113,7 @@ class GoldAnalysisService(
         } else {
             e.message
         }
-        return "AI ë¶„ì„ ?¤íŒ¨ ($detail)"
+        return "AI ë¶„ì„ ?¤íŒ¨ ($detail)"
     }
 
     private data class CacheEntry(
