@@ -21,7 +21,7 @@ spring:
 
 goldapi:
   key: ${GOLD_API_KEY}
-  base-url: https://www.goldapi.io/
+  base-url: https://api.metalpriceapi.com
   currency: USD
 
 openai:
