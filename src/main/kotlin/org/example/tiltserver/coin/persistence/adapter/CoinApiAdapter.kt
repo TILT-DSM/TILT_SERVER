@@ -72,7 +72,8 @@ class CoinApiAdapter : CoinPricePort {
         val coinData = response[coinId]
             ?: throw RuntimeException("코인 데이터 없음: $coinSymbol")
 
-        val price = (coinData["usd"] as? Number)?.toDouble() ?: 0.0
+        val price = (coinData["usd"] as? Number)?.toDouble()
+            ?: throw IllegalStateException("missing value")
         val marketCap = (coinData["usd_market_cap"] as? Number)?.toDouble()
         val volume = (coinData["usd_24h_vol"] as? Number)?.toDouble()
 
