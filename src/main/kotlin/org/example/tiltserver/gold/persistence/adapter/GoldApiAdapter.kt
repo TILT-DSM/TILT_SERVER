@@ -37,7 +37,8 @@ class GoldApiAdapter(
         val response = client.get()
             .uri { uriBuilder ->
                 uriBuilder
-                    .path("/v1/latest")
+                    // ✅ 날짜 조회면 /v1/{date} 가 맞을 가능성이 큼 (latest 고정이면 date 의미 없음)
+                    .path("/v1/${date.trim()}")
                     .queryParam("api_key", apiKey)
                     .queryParam("base", "USD")
                     .queryParam("currencies", "XAU")
@@ -50,15 +51,23 @@ class GoldApiAdapter(
         return response.toEntity()
     }
 
-    private fun GoldApiRawResponse.toEntity(): GoldPrice =
-        GoldPrice(
-            price = convertRateToUsdPerXau(rates?.XAU ?: 0.0),
-            currency = "XAU",
+    private fun GoldApiRawResponse.toEntity(): GoldPrice {
+        val xauRate = rates?.XAU ?: throw IllegalStateException("XAU rate missing")
+
+        require(xauRate.isFinite() && xauRate > 0.0) {
+            "Invalid XAU rate: $xauRate"
+        }
+
+        val usdPerXau = 1.0 / xauRate
+
+        require(usdPerXau.isFinite() && usdPerXau > 0.0) {
+            "Invalid USD/XAU price computed: $usdPerXau (rate=$xauRate)"
+        }
+
+        return GoldPrice(
+            price = usdPerXau,
+            currency = "USD",          // ✅ 가격이 USD per XAU라서 USD가 맞음
             timestamp = timestamp ?: 0L
         )
-
-    private fun convertRateToUsdPerXau(rate: Double): Double {
-        if (rate == 0.0) return 0.0
-        return 1.0 / rate
     }
 }
