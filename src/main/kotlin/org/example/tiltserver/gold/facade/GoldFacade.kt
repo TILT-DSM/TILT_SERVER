@@ -16,7 +16,7 @@ class GoldFacade(
         val news = goldNewsService.getGoldNews()
 
         return GoldApiResponse(
-            data = result.goldPrice, // ✅ 여기 핵심
+            data = result.goldPrice,
             analysis = result.analysis,
             news = news
         )
