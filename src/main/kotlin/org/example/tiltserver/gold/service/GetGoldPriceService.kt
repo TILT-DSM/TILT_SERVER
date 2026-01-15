@@ -1,11 +1,10 @@
 package org.example.tiltserver.gold.service
 
 import org.example.tiltserver.gold.domain.GoldPriceWithAnalysis
-import org.example.tiltserver.gold.persistence.adapter.GoldApiAdapter
+import org.example.tiltserver.gold.entity.GoldPrice
 import org.example.tiltserver.gold.port.`in`.GetGoldPriceUseCase
 import org.example.tiltserver.gold.port.out.GoldPricePort
 import org.springframework.stereotype.Service
-import java.time.LocalDate
 
 @Service
 class GetGoldPriceService(
@@ -13,30 +12,49 @@ class GetGoldPriceService(
     private val goldAnalysisService: GoldAnalysisService
 ) : GetGoldPriceUseCase {
 
+    private val cacheTtlMillis = 5 * 60 * 1000L
+    private val cacheLock = Any()
+
+    @Volatile
+    private var cachedPrice: GoldPrice? = null
+
+    @Volatile
+    private var cacheExpiresAt: Long = 0L
+
     override fun execute(): GoldPriceWithAnalysis {
-        val today = goldPricePort.getGoldPrice()
-        val goldApi = goldPricePort as? GoldApiAdapter
-
-        val weekPrices = (1..7).mapNotNull { i ->
-            val date = LocalDate.now().minusDays(i.toLong()).toString()
-            try {
-                goldApi?.getGoldPriceByDate(date)?.price
-            } catch (_: Exception) {
-                null
-            }
-        }
-
-        val weekAvg = if (weekPrices.isNotEmpty()) weekPrices.average() else today.price
+        val today = getCachedGoldPrice()
+        val weekAvg = today.price
         val diff = ((today.price - weekAvg) / weekAvg) * 100
 
         val trend = when {
-            diff > 0.5 -> "상승세"
-            diff < -0.5 -> "하락세"
-            else -> "안정세"
+            diff > 0.5 -> "up"
+            diff < -0.5 -> "down"
+            else -> "flat"
         }
 
         val analysis = goldAnalysisService.analyze(today.price, trend, diff)
 
         return GoldPriceWithAnalysis(today, analysis)
+    }
+
+    private fun getCachedGoldPrice(): GoldPrice {
+        val now = System.currentTimeMillis()
+        val current = cachedPrice
+        if (current != null && now < cacheExpiresAt) {
+            return current
+        }
+
+        synchronized(cacheLock) {
+            val refreshedNow = System.currentTimeMillis()
+            val refreshedCurrent = cachedPrice
+            if (refreshedCurrent != null && refreshedNow < cacheExpiresAt) {
+                return refreshedCurrent
+            }
+
+            val fresh = goldPricePort.getGoldPrice()
+            cachedPrice = fresh
+            cacheExpiresAt = refreshedNow + cacheTtlMillis
+            return fresh
+        }
     }
 }
