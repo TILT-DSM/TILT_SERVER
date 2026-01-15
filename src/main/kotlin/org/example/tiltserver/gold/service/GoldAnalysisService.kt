@@ -24,7 +24,7 @@ class GoldAnalysisService(
 이 정보를 바탕으로 금 시장의 흐름을 두세 문장으로 간단히 요약하세요.
 현재 금리, 달러 환율, 인플레이션 등 경제 요인을 고려하되
 불필요한 예시 문장이나 괄호, 따옴표 없이 자연스럽게 작성하세요.
-    """.trimIndent()
+        """.trimIndent()
 
         val requestBody = mapOf(
             "model" to model,
@@ -69,7 +69,9 @@ class GoldAnalysisService(
             // ✅ WebClientResponseException이면 서버가 준 응답 바디가 있음
             val detail = if (e is WebClientResponseException) {
                 "status=${e.statusCode}, body=${e.responseBodyAsString}"
-            } else e.message
+            } else {
+                e.message
+            }
 
             "AI 분석 실패 ($detail)"
         }
