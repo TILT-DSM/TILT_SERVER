@@ -9,42 +9,56 @@ import org.springframework.web.reactive.function.client.WebClient
 
 @Component
 class GoldApiAdapter(
-    @Value("\${goldapi.key}") private val apiKey: String
+    @Value("\${GOLD_API_KEY}") private val apiKey: String
 ) : GoldPricePort {
 
     private val client = WebClient.builder()
-        .baseUrl("https://www.goldapi.io/api")
-        .defaultHeader("x-access-token", apiKey)
-        .defaultHeader("Content-Type", "application/json")
+        .baseUrl("https://api.metalpriceapi.com")
         .build()
 
     override fun getGoldPrice(): GoldPrice {
         val response = client.get()
-            .uri("/XAU/USD")
+            .uri { uriBuilder ->
+                uriBuilder
+                    .path("/v1/latest")
+                    .queryParam("api_key", apiKey)
+                    .queryParam("base", "USD")
+                    .queryParam("currencies", "XAU")
+                    .build()
+            }
             .retrieve()
             .bodyToMono(GoldApiRawResponse::class.java)
-            .block() ?: throw RuntimeException("금 시세 조회 실패")
+            .block() ?: throw RuntimeException("Failed to fetch gold price")
 
         return response.toEntity()
     }
 
     fun getGoldPriceByDate(date: String): GoldPrice {
         val response = client.get()
-            .uri("/XAU/USD/$date")
+            .uri { uriBuilder ->
+                uriBuilder
+                    .path("/v1/latest")
+                    .queryParam("api_key", apiKey)
+                    .queryParam("base", "USD")
+                    .queryParam("currencies", "XAU")
+                    .build()
+            }
             .retrieve()
             .bodyToMono(GoldApiRawResponse::class.java)
-            .block() ?: throw RuntimeException("금 시세 조회 실패")
+            .block() ?: throw RuntimeException("Failed to fetch gold price")
 
         return response.toEntity()
     }
 
     private fun GoldApiRawResponse.toEntity(): GoldPrice =
         GoldPrice(
-            price = price ?: 0.0,
-            currency = currency ?: "USD",
-            timestamp = timestamp ?: 0L,
-            open = open,
-            high = high,
-            low = low
+            price = convertRateToUsdPerXau(rates?.XAU ?: 0.0),
+            currency = "XAU",
+            timestamp = timestamp ?: 0L
         )
+
+    private fun convertRateToUsdPerXau(rate: Double): Double {
+        if (rate == 0.0) return 0.0
+        return 1.0 / rate
+    }
 }
