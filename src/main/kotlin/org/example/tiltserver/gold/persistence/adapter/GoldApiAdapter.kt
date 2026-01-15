@@ -1,8 +1,10 @@
 package org.example.tiltserver.gold.persistence.adapter
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.example.tiltserver.gold.entity.GoldPrice
 import org.example.tiltserver.gold.persistence.dto.GoldApiRawResponse
 import org.example.tiltserver.gold.port.out.GoldPricePort
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
@@ -12,47 +14,43 @@ class GoldApiAdapter(
     @Value("\${GOLD_API_KEY}") private val apiKey: String
 ) : GoldPricePort {
 
+    private val log = LoggerFactory.getLogger(this::class.java)
+
     private val client = WebClient.builder()
         .baseUrl("https://api.metalpriceapi.com")
         .build()
 
     override fun getGoldPrice(): GoldPrice {
-        val response = client.get()
-            .uri { uriBuilder ->
-                uriBuilder
-                    .path("/v1/latest")
+        // 🔥 1) RAW JSON 먼저 받기
+        val rawJson = client.get()
+            .uri {
+                it.path("/v1/latest")
                     .queryParam("api_key", apiKey)
                     .queryParam("base", "USD")
                     .queryParam("currencies", "XAU")
                     .build()
             }
             .retrieve()
-            .bodyToMono(GoldApiRawResponse::class.java)
-            .block() ?: throw RuntimeException("Failed to fetch gold price")
+            .bodyToMono(String::class.java)
+            .block() ?: throw IllegalStateException("MetalPrice API returned null")
 
-        return response.toEntity()
-    }
+        log.info("METALPRICE RAW RESPONSE = {}", rawJson)
 
-    fun getGoldPriceByDate(date: String): GoldPrice {
-        val response = client.get()
-            .uri { uriBuilder ->
-                uriBuilder
-                    // ✅ 날짜 조회면 /v1/{date} 가 맞을 가능성이 큼 (latest 고정이면 date 의미 없음)
-                    .path("/v1/${date.trim()}")
-                    .queryParam("api_key", apiKey)
-                    .queryParam("base", "USD")
-                    .queryParam("currencies", "XAU")
-                    .build()
-            }
-            .retrieve()
-            .bodyToMono(GoldApiRawResponse::class.java)
-            .block() ?: throw RuntimeException("Failed to fetch gold price")
+        // 🔥 2) JSON → DTO 수동 변환
+        val mapper = jacksonObjectMapper()
+        val response = mapper.readValue(rawJson, GoldApiRawResponse::class.java)
+
+        // 🔥 3) API 실패 응답 차단
+        require(response.success != false) {
+            "MetalPrice API error response: $rawJson"
+        }
 
         return response.toEntity()
     }
 
     private fun GoldApiRawResponse.toEntity(): GoldPrice {
-        val xauRate = rates?.XAU ?: throw IllegalStateException("XAU rate missing")
+        val xauRate = rates?.XAU
+            ?: throw IllegalStateException("XAU rate missing in response")
 
         require(xauRate.isFinite() && xauRate > 0.0) {
             "Invalid XAU rate: $xauRate"
@@ -66,7 +64,7 @@ class GoldApiAdapter(
 
         return GoldPrice(
             price = usdPerXau,
-            currency = "USD",          // ✅ 가격이 USD per XAU라서 USD가 맞음
+            currency = "USD",
             timestamp = timestamp ?: 0L
         )
     }
