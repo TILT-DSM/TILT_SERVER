@@ -27,7 +27,7 @@ goldapi:
 openai:
   base-url: https://openrouter.ai/api/v1
   key: ${OPENROUTER_API_KEY}
-  model: mistralai/mistral-7b-instruct:free
+  model: meta-llama/llama-3.1-8b-instruct:free
 
 exchangeapi:
   key: ${EXCHANGE_API_KEY}
