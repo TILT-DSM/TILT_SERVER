@@ -57,6 +57,11 @@ class GoldApiAdapter(
     }
 
     private fun GoldApiRawResponse.toEntityWithFallback(): GoldPrice {
+        if (success == false) {
+            log.warn("METALPRICE API returned success=false; using fallback")
+            return fallbackPrice()
+        }
+
         val xauRate = rates?.XAU
 
         val usdPerXau = if (xauRate == null || !xauRate.isFinite() || xauRate <= 0.0) {
