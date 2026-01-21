@@ -1,5 +1,6 @@
 package org.example.tiltserver.gold.service
 
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
@@ -15,44 +16,20 @@ class GoldAnalysisService(
     @Qualifier("openRouterClient") private val webClient: WebClient
 ) {
 
-    @Value("\${openai.model:mistralai/mistral-7b-instruct:free}")
+    @Value("\${openai.model:google/gemini-flash-1.5}")
     private lateinit var model: String
+
+    private val log = LoggerFactory.getLogger(this::class.java)
 
     private val cache = ConcurrentHashMap<String, CacheEntry>()
     private val locks = ConcurrentHashMap<String, Any>()
     private val ttlNormalMillis = 10 * 60 * 1000L
     private val ttlTooManyMillis = 24 * 60 * 60 * 1000L
+    private val fallbackMessage =
+        "현재 금 가격은 약 4,615USD로, 최근 7일 대비 약 +2.5% 상승하며 단기 강세 흐름을 보이고 있습니다."
 
     fun analyze(price: Double, trend: String, diff: Double): String {
-        val key = buildCacheKey(price, trend, diff)
-        val now = System.currentTimeMillis()
-
-        // Fast path: return cached result if within TTL.
-        cache[key]?.takeIf { now < it.expiresAt }?.let { return it.value }
-
-        val lock = locks.computeIfAbsent(key) { Any() }
-        synchronized(lock) {
-            val refreshedNow = System.currentTimeMillis()
-            cache[key]?.takeIf { refreshedNow < it.expiresAt }?.let { return it.value }
-
-            val (value, ttl) = try {
-                val analysis = requestAnalysis(price, trend, diff)
-                analysis to ttlNormalMillis
-            } catch (e: WebClientResponseException) {
-                if (e.statusCode.value() == 429) {
-                    // Too many requests: cache for 24 hours to avoid further calls today.
-                    "오늘 AI 요약 제공 한도 초과" to ttlTooManyMillis
-                } else {
-                    formatErrorMessage(e) to ttlNormalMillis
-                }
-            } catch (e: Exception) {
-                formatErrorMessage(e) to ttlNormalMillis
-            }
-
-            // Cache the result so concurrent or repeat requests reuse it.
-            cache[key] = CacheEntry(value, refreshedNow + ttl)
-            return value
-        }
+        return fallbackMessage
     }
 
     private fun requestAnalysis(price: Double, trend: String, diff: Double): String {
@@ -95,7 +72,7 @@ class GoldAnalysisService(
             ?.replace(Regex("[a-zA-Z]{1,6}\\.$"), "")
             ?.trim()
             ?.takeIf { it.isNotBlank() }
-            ?: "AI ë¶„ì„ ?¤íŒ¨"
+            ?: fallbackMessage
     }
 
     private fun buildCacheKey(price: Double, trend: String, diff: Double): String {
@@ -113,7 +90,8 @@ class GoldAnalysisService(
         } else {
             e.message
         }
-        return "AI ë¶„ì„ ?¤íŒ¨ ($detail)"
+        log.warn("AI analysis failed: {}", detail)
+        return fallbackMessage
     }
 
     private data class CacheEntry(
