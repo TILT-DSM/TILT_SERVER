@@ -41,10 +41,11 @@ class WebClientConfig(
 
     @Bean("openRouterClient")
     fun openRouterWebClient(
+        @Value("\${openai.base-url}") openRouterBaseUrl: String,
         @Value("\${openai.key}") openRouterKey: String
     ): WebClient =
         WebClient.builder()
-            .baseUrl("https://openrouter.ai/api/v1")
+            .baseUrl(openRouterBaseUrl.trimEnd('/'))
             .defaultHeader("Authorization", "Bearer $openRouterKey")
             .defaultHeader("Content-Type", "application/json")
             .build()
