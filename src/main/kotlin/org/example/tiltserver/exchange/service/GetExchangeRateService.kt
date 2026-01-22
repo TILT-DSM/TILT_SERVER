@@ -39,7 +39,7 @@ class GetExchangeRateService(
         return ExchangeRate(
             currencyCode = currencyCode,
             currencyName = "Fallback Currency",
-            basePrice = BigDecimal("1300.00"),
+            basePrice = BigDecimal("1475.00"),
             date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"))
         )
     }
