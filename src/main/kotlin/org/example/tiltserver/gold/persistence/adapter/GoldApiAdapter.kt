@@ -22,7 +22,7 @@ class GoldApiAdapter(
 
     // 🔒 마지막으로 성공한 금 가격 (fallback 용)
     @Volatile
-    private var lastValidGoldPrice: Double = 4615.0
+    private var lastValidGoldPrice: Double = 4963.0
 
     override fun getGoldPrice(): GoldPrice {
         return try {
