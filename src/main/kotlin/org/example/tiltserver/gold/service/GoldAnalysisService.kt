@@ -26,7 +26,7 @@ class GoldAnalysisService(
     private val ttlNormalMillis = 10 * 60 * 1000L
     private val ttlTooManyMillis = 24 * 60 * 60 * 1000L
     private val fallbackMessage =
-        "현재 금 가격은 약 4,615USD로, 최근 7일 대비 약 +2.5% 상승하며 단기 강세 흐름을 보이고 있습니다."
+        "현재 금 가격은 약 4,936.4 USD/oz로, 최근 7일 대비 약 +2.1% 상승하며 단기 강세 흐름을 보이고 있습니다."
 
     fun analyze(price: Double, trend: String, diff: Double): String {
         return fallbackMessage
