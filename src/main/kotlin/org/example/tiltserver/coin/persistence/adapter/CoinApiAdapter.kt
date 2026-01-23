@@ -6,6 +6,9 @@ import org.example.tiltserver.coin.port.out.CoinPricePort
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
+import org.springframework.web.reactive.function.client.WebClientResponseException
+import reactor.util.retry.Retry
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -18,6 +21,9 @@ class CoinApiAdapter : CoinPricePort {
     private val client = WebClient.builder()
         .baseUrl("https://api.coingecko.com/api/v3")
         .build()
+    private val rateLimitRetry = Retry.backoff(2, Duration.ofSeconds(1))
+        .maxBackoff(Duration.ofSeconds(5))
+        .filter { it is WebClientResponseException.TooManyRequests }
 
     // Coin symbol → CoinGecko ID
     private val coinIdMap = mapOf(
@@ -66,6 +72,7 @@ class CoinApiAdapter : CoinPricePort {
             )
             .retrieve()
             .bodyToMono(Map::class.java)
+            .retryWhen(rateLimitRetry)
             .block() as? Map<String, Map<String, Any>>
             ?: throw RuntimeException("코인 시세 조회 실패: $coinSymbol")
 
@@ -101,6 +108,7 @@ class CoinApiAdapter : CoinPricePort {
             .uri("/coins/$coinId/history?date=$formattedDate&localization=false")
             .retrieve()
             .bodyToMono(CoinGeckoHistoryResponse::class.java)
+            .retryWhen(rateLimitRetry)
             .block() ?: return null
 
         val usdPrice = response.marketData?.currentPrice?.get("usd")

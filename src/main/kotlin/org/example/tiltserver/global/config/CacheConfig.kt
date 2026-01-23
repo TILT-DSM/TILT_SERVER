@@ -17,7 +17,7 @@ class CacheConfig {
         manager.setCaffeine(
             Caffeine.newBuilder()
                 .maximumSize(10_000)
-                .expireAfterWrite(Duration.ofSeconds(30)) // 기본: 30초
+                .expireAfterWrite(Duration.ofMinutes(2)) // 기본: 2분
         )
         return manager
     }
