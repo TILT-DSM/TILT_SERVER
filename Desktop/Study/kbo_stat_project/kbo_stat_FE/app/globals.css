@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* 배경: 따뜻한 슬레이트 오프화이트 */
+    --background: 210 20% 96%;
+    --foreground: 220 25% 12%;
+    /* 카드: 따뜻한 오프화이트 (순백보다 부드럽게) */
+    --card: 210 15% 97%;
+    --card-foreground: 220 25% 12%;
+    --popover: 210 15% 97%;
+    --popover-foreground: 220 25% 12%;
+    /* 로고 초록색 포인트 — 라이트에서는 약간 더 딥하게 */
+    --primary: 142 65% 38%;
+    --primary-foreground: 0 0% 100%;
+    /* 보조 배경: 살짝 초록기 도는 회색 */
+    --secondary: 210 16% 90%;
+    --secondary-foreground: 220 20% 25%;
+    --muted: 210 16% 90%;
+    --muted-foreground: 215 14% 45%;
+    --accent: 142 30% 88%;
+    --accent-foreground: 142 65% 22%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    /* 테두리: 명확한 그레이 */
+    --border: 214 18% 82%;
+    --input: 214 18% 82%;
+    --ring: 142 65% 38%;
+    --radius: 0.5rem;
+    --chart-1: 12 76% 55%;
+    --chart-2: 142 60% 38%;
+    --chart-3: 197 50% 35%;
+    --chart-4: 43 74% 55%;
+    --chart-5: 27 87% 58%;
+
+    /* Custom tokens */
+    --kbo-surface: oklch(0.96 0.005 240);
+    --kbo-surface-hover: oklch(0.92 0.008 240);
+    --kbo-highlight: oklch(0.55 0.16 145);
+    --kbo-danger: oklch(0.50 0.22 25);
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    /* 로고 초록색 포인트 (dark 모드) */
+    --primary: 142 71% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 142 25% 18%;
+    --input: 142 20% 15%;
+    --ring: 142 71% 45%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 142 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    
+    /* Custom tokens */
+    --kbo-surface: oklch(0.19 0.008 260);
+    --kbo-surface-hover: oklch(0.24 0.01 260);
+    --kbo-highlight: oklch(0.65 0.18 145);
+    --kbo-danger: oklch(0.55 0.22 25);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
