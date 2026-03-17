@@ -1,5 +1,4 @@
 import Link from "next/link"
-import { BarChart3 } from "lucide-react"
 
 import { fetchJson } from "@/lib/api"
 import { SiteHeader } from "@/components/site-header"
@@ -7,8 +6,6 @@ import { PlayerProfile } from "@/components/player-profile"
 import { PlayerStatsTable } from "@/components/player-stats-table"
 import { PlayerDetailSection } from "@/components/player-detail-section"
 import { PredictionSummary } from "@/components/prediction-summary"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { topHitters, topPitchers } from "@/lib/mock-data"
 import type { HitterSeason, PlayerBase } from "@/lib/mock-data"
 
 type PlayerRow = {
@@ -57,6 +54,8 @@ type PlayerDetailResponse = {
   player_id?: string
   profile?: {
     teams_in_season?: string[]
+    birth_date?: string | null
+    bats_throws?: string | null
   }
   season_rows?: PlayerRow[]
   season_by_year?: PlayerRow[]
@@ -134,15 +133,15 @@ function buildApiProfile(detail: PlayerDetailResponse): PlayerBase {
   const teamLabel = teams.length > 0 ? teams.join(" / ") : (latest?.team ?? "-")
 
   return {
-    id: `api-${detail.player_name}`,
+    id: detail.player_id ?? `api-${detail.player_name}`,
     name: detail.player_name,
     team: teamLabel,
     teamColor: TEAM_COLORS[latest?.team ?? ""] ?? "#6b7280",
     position: "타자",
     number: 0,
-    birthDate: "-",
+    birthDate: detail.profile?.birth_date ?? "-",
     age: 0,
-    hand: "-",
+    hand: detail.profile?.bats_throws ?? "-",
     height: 0,
     weight: 0,
     salary: "-",
@@ -152,65 +151,6 @@ function buildApiProfile(detail: PlayerDetailResponse): PlayerBase {
 
 function isApiNotFound(error: unknown): boolean {
   return error instanceof Error && error.message.includes("API 404")
-}
-
-
-function PitcherStatsTable({ pitcher }: { pitcher: typeof topPitchers[number] }) {
-  return (
-    <div className="rounded-lg border border-border bg-card">
-      <div className="border-b border-border px-4 py-3">
-        <h2 className="text-sm font-semibold text-foreground">시즌 기록</h2>
-      </div>
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent border-border">
-              <TableHead className="text-xs text-muted-foreground">시즌</TableHead>
-              <TableHead className="text-xs text-muted-foreground">팀</TableHead>
-              <TableHead className="text-center text-xs text-muted-foreground">G</TableHead>
-              <TableHead className="text-center text-xs text-muted-foreground">W</TableHead>
-              <TableHead className="text-center text-xs text-muted-foreground">L</TableHead>
-              <TableHead className="text-center text-xs text-muted-foreground">SV</TableHead>
-              <TableHead className="text-center text-xs text-muted-foreground">HLD</TableHead>
-              <TableHead className="text-center text-xs text-muted-foreground">IP</TableHead>
-              <TableHead className="text-center text-xs text-muted-foreground">H</TableHead>
-              <TableHead className="text-center text-xs text-muted-foreground">ER</TableHead>
-              <TableHead className="text-center text-xs text-muted-foreground">BB</TableHead>
-              <TableHead className="text-center text-xs text-muted-foreground">SO</TableHead>
-              <TableHead className="text-center text-xs font-semibold text-foreground">ERA</TableHead>
-              <TableHead className="text-center text-xs text-muted-foreground">WHIP</TableHead>
-              <TableHead className="text-center text-xs text-muted-foreground">K/9</TableHead>
-              <TableHead className="text-center text-xs text-muted-foreground">BB/9</TableHead>
-              <TableHead className="text-center text-xs text-muted-foreground">FIP</TableHead>
-              <TableHead className="text-center text-xs font-semibold text-primary">WAR</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow className="border-border hover:bg-secondary/50">
-              <TableCell className="text-sm font-mono font-medium text-foreground">{pitcher.stats.season}</TableCell>
-              <TableCell className="text-sm text-muted-foreground">{pitcher.stats.team}</TableCell>
-              <TableCell className="text-center text-sm font-mono text-foreground">{pitcher.stats.G}</TableCell>
-              <TableCell className="text-center text-sm font-mono text-foreground">{pitcher.stats.W}</TableCell>
-              <TableCell className="text-center text-sm font-mono text-foreground">{pitcher.stats.L}</TableCell>
-              <TableCell className="text-center text-sm font-mono text-foreground">{pitcher.stats.SV}</TableCell>
-              <TableCell className="text-center text-sm font-mono text-muted-foreground">{pitcher.stats.HLD}</TableCell>
-              <TableCell className="text-center text-sm font-mono text-foreground">{pitcher.stats.IP}</TableCell>
-              <TableCell className="text-center text-sm font-mono text-foreground">{pitcher.stats.H}</TableCell>
-              <TableCell className="text-center text-sm font-mono text-foreground">{pitcher.stats.ER}</TableCell>
-              <TableCell className="text-center text-sm font-mono text-muted-foreground">{pitcher.stats.BB}</TableCell>
-              <TableCell className="text-center text-sm font-mono font-semibold text-kbo-highlight">{pitcher.stats.SO}</TableCell>
-              <TableCell className="text-center text-sm font-mono font-semibold text-foreground">{pitcher.stats.ERA}</TableCell>
-              <TableCell className="text-center text-sm font-mono text-foreground">{pitcher.stats.WHIP}</TableCell>
-              <TableCell className="text-center text-sm font-mono text-foreground">{pitcher.stats.K9}</TableCell>
-              <TableCell className="text-center text-sm font-mono text-muted-foreground">{pitcher.stats.BB9}</TableCell>
-              <TableCell className="text-center text-sm font-mono text-foreground">{pitcher.stats.FIP}</TableCell>
-              <TableCell className="text-center text-sm font-mono font-bold text-primary">{pitcher.stats.WAR}</TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </div>
-    </div>
-  )
 }
 
 export default async function PlayerPage({
@@ -223,56 +163,6 @@ export default async function PlayerPage({
   const [{ id }, qs] = await Promise.all([params, searchParams ? Promise.resolve(searchParams) : Promise.resolve({})])
   const decodedId = decodeURIComponent(id)
   const season = toNumber((qs as { season?: string }).season) || undefined
-
-  // Legacy mock route compatibility: /player/h1, /player/p1
-  const mockHitter = topHitters.find((h) => h.id === decodedId)
-  const mockPitcher = topPitchers.find((p) => p.id === decodedId)
-  if (mockHitter || mockPitcher) {
-    const displayPlayer = mockHitter || mockPitcher
-    const isHitter = !!mockHitter
-    return (
-      <div className="min-h-screen bg-background">
-        <SiteHeader />
-        <main className="mx-auto max-w-7xl px-4 py-6">
-          <nav className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Link href="/" className="hover:text-foreground transition-colors">홈</Link>
-            <span>/</span>
-            <Link href="/players" className="hover:text-foreground transition-colors">선수</Link>
-            <span>/</span>
-            <span className="text-foreground">{displayPlayer?.name}</span>
-          </nav>
-
-          {displayPlayer && <PlayerProfile player={displayPlayer} />}
-
-          <section className="mt-6">
-            {isHitter ? (
-              <PlayerDetailSection
-                playerName={mockHitter!.name}
-                playerId={mockHitter!.id}
-                seasonHistory={[]}
-                monthlyRows={[]}
-                selectedSeason={Number(mockHitter!.stats.season)}
-                availableSeasons={[Number(mockHitter!.stats.season)]}
-              />
-            ) : (
-              <div className="rounded-lg border border-border bg-card p-8 text-center">
-                <BarChart3 className="mx-auto h-10 w-10 text-muted-foreground" />
-                <p className="mt-3 text-sm text-muted-foreground">투수 시각화 데이터 준비 중</p>
-              </div>
-            )}
-          </section>
-
-          <section className="mt-6">
-            {isHitter ? (
-              <PlayerStatsTable seasons={[mockHitter!.stats]} />
-            ) : (
-              mockPitcher && <PitcherStatsTable pitcher={mockPitcher} />
-            )}
-          </section>
-        </main>
-      </div>
-    )
-  }
 
   let detail: PlayerDetailResponse | null = null
   let notFound = false
@@ -289,15 +179,17 @@ export default async function PlayerPage({
         <SiteHeader />
         <main className="mx-auto max-w-7xl px-4 py-6">
           <nav className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Link href="/" className="hover:text-foreground transition-colors">홈</Link>
+            <Link href="/" className="transition-colors hover:text-foreground">Home</Link>
             <span>/</span>
-            <Link href="/players" className="hover:text-foreground transition-colors">선수</Link>
+            <Link href="/players" className="transition-colors hover:text-foreground">Players</Link>
             <span>/</span>
             <span className="text-foreground">{decodedId}</span>
           </nav>
           <div className="rounded-lg border border-border bg-card p-6">
-            <h1 className="text-lg font-semibold text-foreground">선수 상세 데이터 없음</h1>
-            <p className="mt-2 text-sm text-muted-foreground">"{decodedId}" 선수의 상세 데이터를 찾을 수 없습니다.</p>
+            <h1 className="text-lg font-semibold text-foreground">선수 상세 정보가 없습니다</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              "{decodedId}" 선수의 실제 데이터를 찾지 못했습니다. mock 데이터는 더 이상 표시하지 않습니다.
+            </p>
           </div>
         </main>
       </div>
@@ -307,8 +199,10 @@ export default async function PlayerPage({
   const seasonHistory = mapSeasonRows(detail.season_by_year || detail.season_rows || [])
   const monthlyRows = detail.monthly_splits ?? []
   const availableSeasons = Array.from(
-    new Set((detail.season_by_year || detail.season_rows || []).map((r) => Number(r.season)))
-  ).filter(Boolean).sort((a, b) => b - a)
+    new Set((detail.season_by_year || detail.season_rows || []).map((row) => Number(row.season))),
+  )
+    .filter(Boolean)
+    .sort((a, b) => b - a)
 
   if (seasonHistory.length === 0) {
     return (
@@ -316,8 +210,10 @@ export default async function PlayerPage({
         <SiteHeader />
         <main className="mx-auto max-w-7xl px-4 py-6">
           <div className="rounded-lg border border-border bg-card p-6">
-            <h1 className="text-lg font-semibold text-foreground">시즌 데이터 없음</h1>
-            <p className="mt-2 text-sm text-muted-foreground">"{decodedId}" 선수의 시즌 기록이 아직 없습니다.</p>
+            <h1 className="text-lg font-semibold text-foreground">시즌 기록이 없습니다</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              "{detail.player_name}" 선수의 시즌 기록이 아직 없습니다.
+            </p>
           </div>
         </main>
       </div>
@@ -331,9 +227,9 @@ export default async function PlayerPage({
       <SiteHeader />
       <main className="mx-auto max-w-7xl px-4 py-6">
         <nav className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Link href="/" className="hover:text-foreground transition-colors">홈</Link>
+          <Link href="/" className="transition-colors hover:text-foreground">홈</Link>
           <span>/</span>
-          <Link href="/players" className="hover:text-foreground transition-colors">선수</Link>
+          <Link href="/players" className="transition-colors hover:text-foreground">선수</Link>
           <span>/</span>
           <span className="text-foreground">{detail.player_name}</span>
         </nav>
@@ -347,13 +243,13 @@ export default async function PlayerPage({
         <PlayerDetailSection
           playerName={detail.player_name}
           playerId={detail.player_id ?? detail.player_name}
-          seasonHistory={seasonHistory.map((s) => ({
-            season: Number(s.season),
-            team: s.team,
-            HR: Number(s.HR ?? 0),
-            AVG: s.AVG,
-            OPS: s.OPS,
-            WAR: s.WAR,
+          seasonHistory={seasonHistory.map((seasonRow) => ({
+            season: Number(seasonRow.season),
+            team: seasonRow.team,
+            HR: Number(seasonRow.HR ?? 0),
+            AVG: seasonRow.AVG,
+            OPS: seasonRow.OPS,
+            WAR: seasonRow.WAR,
           }))}
           monthlyRows={monthlyRows}
           selectedSeason={detail.season}
