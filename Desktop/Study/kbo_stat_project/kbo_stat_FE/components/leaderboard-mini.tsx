@@ -1,6 +1,8 @@
 "use client"
 
 import { TrendingUp, Trophy } from "lucide-react"
+import { useLang, tr } from "@/components/lang-context"
+import { formatPlayerName, formatTeamName } from "@/lib/romanize"
 
 type LeaderRow = {
   player_name: string
@@ -34,10 +36,12 @@ function LeaderCard({
   title,
   icon,
   items,
+  noDataText,
 }: {
   title: string
   icon: React.ReactNode
   items: { rank: number; name: string; team: string; value: string; sub?: string }[]
+  noDataText: string
 }) {
   return (
     <div className="rounded-lg border border-border bg-card">
@@ -47,7 +51,7 @@ function LeaderCard({
       </div>
       <div className="divide-y divide-border">
         {items.length === 0 && (
-          <div className="px-4 py-3 text-xs text-muted-foreground">데이터 준비 중</div>
+          <div className="px-4 py-3 text-xs text-muted-foreground">{noDataText}</div>
         )}
         {items.map((item) => (
           <div key={`${title}-${item.rank}-${item.name}`} className="flex items-center gap-3 px-4 py-2.5">
@@ -68,43 +72,47 @@ function LeaderCard({
 }
 
 export function LeaderboardMini({ summary }: { summary: Summary }) {
+  const { lang } = useLang()
+
   const avgLeaders = (summary.leaderboards.avg_top5 ?? []).map((p, i) => ({
     rank: i + 1,
-    name: p.player_name,
-    team: p.team,
+    name: formatPlayerName(p.player_name, lang),
+    team: formatTeamName(p.team, lang),
     value: formatTo3(p.AVG),
-    sub: `${p.H ?? "-"}H / ${p.PA ?? "-"}PA`,
+    sub: `${p.H ?? "-"}안타 / ${p.PA ?? "-"}타석`,
   }))
 
   const hrLeaders = (summary.leaderboards.hr_top5 ?? []).map((p, i) => ({
     rank: i + 1,
-    name: p.player_name,
-    team: p.team,
+    name: formatPlayerName(p.player_name, lang),
+    team: formatTeamName(p.team, lang),
     value: String(p.HR ?? "-"),
-    sub: `${p.RBI ?? "-"}RBI / ${formatTo3(p.OPS)} OPS`,
+    sub: `${p.RBI ?? "-"}타점 / OPS ${formatTo3(p.OPS)}`,
   }))
 
   const eraLeaders = (summary.leaderboards.era_top5 ?? []).map((p, i) => ({
     rank: i + 1,
-    name: p.player_name,
-    team: p.team,
+    name: formatPlayerName(p.player_name, lang),
+    team: formatTeamName(p.team, lang),
     value: String(p.ERA ?? "-"),
     sub: p.PA ? `${p.PA}IP` : undefined,
   }))
 
   const warLeaders = (summary.leaderboards.war_top5 ?? []).map((p, i) => ({
     rank: i + 1,
-    name: p.player_name,
-    team: p.team,
+    name: formatPlayerName(p.player_name, lang),
+    team: formatTeamName(p.team, lang),
     value: String(p.WAR ?? "-"),
   }))
 
+  const noDataText = tr("lb.noData", lang)
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <LeaderCard title="타율 TOP 5" icon={<Trophy className="h-4 w-4 text-primary" />} items={avgLeaders} />
-      <LeaderCard title="홈런 TOP 5" icon={<Trophy className="h-4 w-4 text-kbo-highlight" />} items={hrLeaders} />
-      <LeaderCard title="ERA TOP 5" icon={<TrendingUp className="h-4 w-4 text-chart-2" />} items={eraLeaders} />
-      <LeaderCard title="WAR TOP 5" icon={<TrendingUp className="h-4 w-4 text-primary" />} items={warLeaders} />
+      <LeaderCard title={tr("lb.avg", lang)} icon={<Trophy className="h-4 w-4 text-primary" />} items={avgLeaders} noDataText={noDataText} />
+      <LeaderCard title={tr("lb.hr", lang)}  icon={<Trophy className="h-4 w-4 text-kbo-highlight" />} items={hrLeaders} noDataText={noDataText} />
+      <LeaderCard title={tr("lb.era", lang)} icon={<TrendingUp className="h-4 w-4 text-chart-2" />} items={eraLeaders} noDataText={noDataText} />
+      <LeaderCard title={tr("lb.war", lang)} icon={<TrendingUp className="h-4 w-4 text-primary" />} items={warLeaders} noDataText={noDataText} />
     </div>
   )
 }
