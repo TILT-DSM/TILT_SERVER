@@ -30,11 +30,12 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#1a1a2e',
+  themeColor: '#22c55e',
   userScalable: true,
 }
 
 import { Providers } from "@/components/providers"
+import { SiteFooter } from "@/components/site-footer"
 
 export default function RootLayout({
   children,
@@ -46,6 +47,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <Providers>
           {children}
+          <SiteFooter />
         </Providers>
         <Analytics />
       </body>
