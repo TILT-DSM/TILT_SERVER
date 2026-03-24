@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { fetchJson } from "@/lib/api"
 import { useLang, tr } from "@/components/lang-context"
 import { formatPlayerName } from "@/lib/romanize"
+import { getDefaultSeasonStringByKst } from "@/lib/season"
 
 type StandingsRow = {
   rank: number
@@ -31,6 +32,7 @@ type StandingsResponse = {
   as_of_date: string | null
   mode: string
   rows: StandingsRow[]
+  available_seasons?: number[]
 }
 
 type LeaderRow = {
@@ -43,12 +45,27 @@ type LeaderRow = {
   OPS: number
 }
 
+type PitcherLeaderRow = {
+  player_name: string
+  games: number
+  W: number
+  L: number
+  SV: number
+  HLD: number
+  IP: number
+  ERA: number
+  WHIP: number
+  K9: number
+}
+
 type TeamDetailResponse = {
   season: number
   team: string
   leaders: {
     ops_top10: LeaderRow[]
     hr_top10: LeaderRow[]
+    era_top10: PitcherLeaderRow[]
+    k9_top10: PitcherLeaderRow[]
   }
   recent_games: {
     game_date: string
@@ -80,6 +97,8 @@ type TeamScheduleResponse = {
     game_time: string | null
     stadium: string | null
     status: string | null
+    status_category: "scheduled" | "cancelled" | "suspended" | "finished" | "unknown"
+    result_state: "played" | "not_played" | "missing_result"
     is_home: boolean
     opp_team: string
     result: "W" | "L" | "D" | null
@@ -109,17 +128,6 @@ function formatKoreanDate(dateStr: string | null | undefined) {
   return dateStr
 }
 
-function getDefaultSeasonByKstDate() {
-  const seasonStart = "2026-03-28"
-  const todayKst = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date())
-  return todayKst >= seasonStart ? "2026" : "2025"
-}
-
 /** "N연승" → "NW", "N연패" → "NL" 형태로 영어 변환 */
 function localizeStreak(streak: string | null | undefined, lang: "ko" | "en"): string {
   if (!streak) return "-"
@@ -134,7 +142,7 @@ function localizeStreak(streak: string | null | undefined, lang: "ko" | "en"): s
 
 export default function TeamPage() {
   const { lang } = useLang()
-  const [requestedSeason, setRequestedSeason] = useState(getDefaultSeasonByKstDate)
+  const [requestedSeason, setRequestedSeason] = useState(getDefaultSeasonStringByKst)
   const [selectedTeam, setSelectedTeam] = useState("")
   const [selectedMonth, setSelectedMonth] = useState("all")
 
@@ -147,6 +155,9 @@ export default function TeamPage() {
 
   const effectiveSeason = standingsQuery.data?.effective_season ?? Number(requestedSeason)
   const standingsTeams = standingsQuery.data?.rows ?? []
+  // DB에 데이터가 있는 시즌만 표시. standings 로드 전에는 현재 연도 하나만 보여줌
+  const seasonOptions = standingsQuery.data?.available_seasons?.map(String)
+    ?? [String(Number(requestedSeason))]
   const teams = standingsTeams.length
     ? standingsTeams.map((row) => row.team)
     : [...TEAM_OPTIONS]
@@ -231,8 +242,11 @@ export default function TeamPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="2026">2026</SelectItem>
-                <SelectItem value="2025">2025</SelectItem>
+                {seasonOptions.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
               <Select value={selectedTeam} onValueChange={setSelectedTeam}>
@@ -323,8 +337,12 @@ export default function TeamPage() {
                       {(teamDetailQuery.data?.leaders.ops_top10 ?? []).map((row, idx) => (
                         <TableRow key={`${row.player_name}-${idx}`} className="border-border">
                           <TableCell className="text-sm">
-                            {formatPlayerName(row.player_name, lang)}
-                            {row.birth_date && row.birth_date !== "-" ? ` (${formatKoreanDate(row.birth_date)})` : ""}
+                            <Link
+                              href={`/player/${encodeURIComponent(row.player_name)}?player_type=hitter`}
+                              className="hover:text-primary hover:underline"
+                            >
+                              {formatPlayerName(row.player_name, lang)}
+                            </Link>
                           </TableCell>
                           <TableCell className="text-center text-sm font-mono">{row.PA}</TableCell>
                           <TableCell className="text-center text-sm font-mono">{Number(row.OPS || 0).toFixed(3)}</TableCell>
@@ -354,13 +372,99 @@ export default function TeamPage() {
                       {(teamDetailQuery.data?.leaders.hr_top10 ?? []).map((row, idx) => (
                         <TableRow key={`${row.player_name}-${idx}`} className="border-border">
                           <TableCell className="text-sm">
-                            {formatPlayerName(row.player_name, lang)}
-                            {row.birth_date && row.birth_date !== "-" ? ` (${formatKoreanDate(row.birth_date)})` : ""}
+                            <Link
+                              href={`/player/${encodeURIComponent(row.player_name)}?player_type=hitter`}
+                              className="hover:text-primary hover:underline"
+                            >
+                              {formatPlayerName(row.player_name, lang)}
+                            </Link>
                           </TableCell>
                           <TableCell className="text-center text-sm font-mono">{row.PA}</TableCell>
                           <TableCell className="text-center text-sm font-mono">{row.HR}</TableCell>
                           <TableCell className="text-center text-sm font-mono">{row.RBI}</TableCell>
                           <TableCell className="text-center text-sm font-mono">{Number(row.OPS || 0).toFixed(3)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* ERA 리더 */}
+                <div className="rounded-lg border border-border bg-card">
+                  <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+                    <Trophy className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {lang === "ko" ? "ERA 리더" : "ERA Leaders"}
+                    </h3>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-border hover:bg-transparent">
+                        <TableHead className="text-xs">{tr("players.player", lang)}</TableHead>
+                        <TableHead className="text-center text-xs">IP</TableHead>
+                        <TableHead className="text-center text-xs">W</TableHead>
+                        <TableHead className="text-center text-xs">L</TableHead>
+                        <TableHead className="text-center text-xs">SV</TableHead>
+                        <TableHead className="text-center text-xs">ERA</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(teamDetailQuery.data?.leaders.era_top10 ?? []).map((row, idx) => (
+                        <TableRow key={`era-${row.player_name}-${idx}`} className="border-border">
+                          <TableCell className="text-sm">
+                            <Link
+                              href={`/player/${encodeURIComponent(row.player_name)}?player_type=pitcher`}
+                              className="hover:text-primary hover:underline"
+                            >
+                              {formatPlayerName(row.player_name, lang)}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-center text-sm font-mono">{Number(row.IP || 0).toFixed(1)}</TableCell>
+                          <TableCell className="text-center text-sm font-mono">{row.W}</TableCell>
+                          <TableCell className="text-center text-sm font-mono">{row.L}</TableCell>
+                          <TableCell className="text-center text-sm font-mono">{row.SV}</TableCell>
+                          <TableCell className="text-center text-sm font-mono">{Number(row.ERA || 0).toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* K/9 리더 */}
+                <div className="rounded-lg border border-border bg-card">
+                  <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+                    <Trophy className="h-4 w-4 text-chart-2" />
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {lang === "ko" ? "K/9 리더" : "K/9 Leaders"}
+                    </h3>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-border hover:bg-transparent">
+                        <TableHead className="text-xs">{tr("players.player", lang)}</TableHead>
+                        <TableHead className="text-center text-xs">IP</TableHead>
+                        <TableHead className="text-center text-xs">W</TableHead>
+                        <TableHead className="text-center text-xs">L</TableHead>
+                        <TableHead className="text-center text-xs">SV</TableHead>
+                        <TableHead className="text-center text-xs">K/9</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(teamDetailQuery.data?.leaders.k9_top10 ?? []).map((row, idx) => (
+                        <TableRow key={`k9-${row.player_name}-${idx}`} className="border-border">
+                          <TableCell className="text-sm">
+                            <Link
+                              href={`/player/${encodeURIComponent(row.player_name)}?player_type=pitcher`}
+                              className="hover:text-primary hover:underline"
+                            >
+                              {formatPlayerName(row.player_name, lang)}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-center text-sm font-mono">{Number(row.IP || 0).toFixed(1)}</TableCell>
+                          <TableCell className="text-center text-sm font-mono">{row.W}</TableCell>
+                          <TableCell className="text-center text-sm font-mono">{row.L}</TableCell>
+                          <TableCell className="text-center text-sm font-mono">{row.SV}</TableCell>
+                          <TableCell className="text-center text-sm font-mono">{Number(row.K9 || 0).toFixed(2)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -556,13 +660,30 @@ function ScheduleCalendar({
               {/* 경기 정보 */}
               {games.map((game, gi) => {
                 const hasResult = game.result !== null
+                const sc = game.status_category ?? "unknown"
+
+                // Background color based on outcome or status
                 const bgClass = hasResult
                   ? game.result === "W"
                     ? "bg-primary/10 border border-primary/30"
                     : game.result === "L"
                     ? "bg-red-500/10 border border-red-500/20"
                     : "bg-secondary border border-border"
+                  : sc === "cancelled"
+                  ? "border border-dashed border-muted-foreground/30 opacity-60"
+                  : sc === "suspended"
+                  ? "border border-dashed border-amber-500/40 bg-amber-500/5"
                   : "border border-dashed border-border"
+
+                // Label to show when there is no result
+                const noResultLabel = () => {
+                  if (sc === "cancelled")      return tr("team.status.cancelled", lang)
+                  if (sc === "suspended")      return tr("team.status.suspended", lang)
+                  if (sc === "finished")       return tr("team.status.missingResult", lang)
+                  if (sc === "unknown")        return game.game_time ? game.game_time.slice(0, 5) : tr("team.status.unknown", lang)
+                  // scheduled
+                  return game.game_time ? game.game_time.slice(0, 5) : tr("team.scheduled", lang)
+                }
 
                 return (
                   <div key={gi} className={`mb-1 rounded p-1 ${bgClass}`}>
@@ -588,8 +709,14 @@ function ScheduleCalendar({
                         {game.team_score}-{game.opp_score}
                       </p>
                     ) : (
-                      <p className="text-[10px] text-muted-foreground leading-tight">
-                        {game.game_time ? game.game_time.slice(0, 5) : tr("team.scheduled", lang)}
+                      <p className={`text-[10px] leading-tight ${
+                        sc === "cancelled" || sc === "suspended"
+                          ? "text-muted-foreground/70"
+                          : sc === "finished"
+                          ? "text-amber-400"
+                          : "text-muted-foreground"
+                      }`}>
+                        {noResultLabel()}
                       </p>
                     )}
                   </div>
