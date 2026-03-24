@@ -36,8 +36,10 @@ export function PlayerProfile({ player }: { player: PlayerBase }) {
 
           <p className="mt-1 text-sm text-muted-foreground">
             {player.position}
-            {hasHand ? ` 쨌 ${player.hand}` : (
-              <span className="ml-1 text-xs text-muted-foreground/60">(?ы? ?뺣낫 ?놁쓬)</span>
+            {hasHand ? ` · ${player.hand}` : (
+              <span className="ml-1 text-xs text-muted-foreground/60">
+                {lang === "ko" ? "(투타 정보 없음)" : "(No handedness data)"}
+              </span>
             )}
           </p>
 
