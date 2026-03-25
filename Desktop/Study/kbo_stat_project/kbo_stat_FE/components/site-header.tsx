@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { useLang, tr } from "@/components/lang-context"
 import { fetchJson } from "@/lib/api"
 import { formatPlayerName, formatTeamName } from "@/lib/romanize"
+import { GlossaryDialog } from "@/components/glossary-dialog"
 
 type SearchRow = {
   player_id: string
@@ -19,7 +20,8 @@ type SearchRow = {
   AVG?: number | string
   HR?: number | string
   OPS?: number | string
-  _type?: "player" | "team" // 팀 결과는 _type: "team"
+  player_type?: "hitter" | "pitcher"
+  _type?: "player" | "team"
 }
 
 const TEAMS: { name: string; aliases: string[] }[] = [
@@ -64,6 +66,7 @@ export function SiteHeader() {
   const [isSearching, setIsSearching] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const debouncedQuery = useDebounce(query, 300)
 
@@ -101,11 +104,23 @@ export function SiteHeader() {
     return () => document.removeEventListener("mousedown", handleClick)
   }, [])
 
+  useEffect(() => {
+    function handleMenuClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleMenuClickOutside)
+    return () => document.removeEventListener("mousedown", handleMenuClickOutside)
+  }, [])
+
   function handleSelect(row: SearchRow) {
     setQuery("")
     setDropdownOpen(false)
     if (row._type === "team") {
       router.push(`/team?team=${encodeURIComponent(row.team)}`)
+    } else if (row.player_type === "pitcher") {
+      router.push(`/player/${encodeURIComponent(row.player_id || row.player_name)}?player_type=pitcher`)
     } else {
       router.push(`/player/${encodeURIComponent(row.player_id || row.player_name)}`)
     }
@@ -207,7 +222,9 @@ export function SiteHeader() {
                         >
                           {row._type === "team" ? (
                             <>
-                              <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-primary/20 text-[10px] font-bold text-primary shrink-0">T</span>
+                              <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-primary/20 text-[10px] font-bold text-primary shrink-0">
+                                T
+                              </span>
                               <div className="min-w-0 flex-1">
                                 <span className="text-sm font-medium text-foreground">{formatTeamName(row.player_name, lang)}</span>
                                 <span className="ml-2 text-xs text-muted-foreground">{lang === "en" ? "Team" : "팀"}</span>
@@ -215,16 +232,26 @@ export function SiteHeader() {
                             </>
                           ) : (
                             <>
-                              <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-secondary text-[10px] font-bold text-muted-foreground shrink-0">P</span>
+                              <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-secondary text-[10px] font-bold text-muted-foreground shrink-0">
+                                {row.player_type === "pitcher" ? "P" : "H"}
+                              </span>
                               <div className="min-w-0 flex-1">
                                 <span className="text-sm font-medium text-foreground">{formatPlayerName(row.player_name, lang)}</span>
                                 <span className="ml-2 text-xs text-muted-foreground">{formatTeamName(row.team, lang)}</span>
                               </div>
-                              <div className="flex gap-3 text-xs font-mono text-muted-foreground shrink-0">
-                                {row.AVG !== undefined && <span>AVG {Number.isFinite(Number(row.AVG)) ? Number(row.AVG).toFixed(3) : "-"}</span>}
-                                {row.HR !== undefined && <span>HR {String(row.HR ?? "-")}</span>}
-                                {row.OPS !== undefined && <span>OPS {Number.isFinite(Number(row.OPS)) ? Number(row.OPS).toFixed(3) : "-"}</span>}
-                              </div>
+                              {row.player_type === "pitcher" ? (
+                                <span className="text-xs text-muted-foreground">{lang === "en" ? "Pitcher" : "투수"}</span>
+                              ) : (
+                                <div className="flex shrink-0 gap-3 text-xs font-mono text-muted-foreground">
+                                  {row.AVG !== undefined && (
+                                    <span>AVG {Number.isFinite(Number(row.AVG)) ? Number(row.AVG).toFixed(3) : "-"}</span>
+                                  )}
+                                  {row.HR !== undefined && <span>HR {String(row.HR ?? "-")}</span>}
+                                  {row.OPS !== undefined && (
+                                    <span>OPS {Number.isFinite(Number(row.OPS)) ? Number(row.OPS).toFixed(3) : "-"}</span>
+                                  )}
+                                </div>
+                              )}
                             </>
                           )}
                         </button>
@@ -237,7 +264,13 @@ export function SiteHeader() {
           </div>
         </div>
 
-        <div className="relative flex shrink-0 items-center">
+        <GlossaryDialog>
+          <button className="hidden whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground md:block">
+            {tr("home.glossary", lang)}
+          </button>
+        </GlossaryDialog>
+
+        <div className="relative flex shrink-0 items-center" ref={menuRef}>
           <Button
             variant="ghost"
             size="icon"
@@ -252,7 +285,7 @@ export function SiteHeader() {
             <div className="absolute top-10 right-0 w-64 rounded-lg border border-border bg-card p-3 shadow-xl">
               <div className="mb-3 md:hidden">
                 <p className="mb-2 text-xs font-medium text-muted-foreground">{tr("ui.menu", lang)}</p>
-                <div className="grid grid-cols-3 gap-1">
+                <div className="grid grid-cols-2 gap-1">
                   {navItems.map((item) => (
                     <Link
                       key={item.href}
@@ -265,6 +298,11 @@ export function SiteHeader() {
                       {item.label}
                     </Link>
                   ))}
+                  <GlossaryDialog>
+                    <button className="w-full rounded-md bg-secondary px-2 py-1.5 text-center text-xs text-muted-foreground">
+                      {tr("home.glossary", lang)}
+                    </button>
+                  </GlossaryDialog>
                 </div>
               </div>
 
