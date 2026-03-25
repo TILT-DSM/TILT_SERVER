@@ -1,13 +1,17 @@
 "use client"
 
+import Link from "next/link"
 import { TrendingUp, Trophy } from "lucide-react"
+
 import { useLang, tr } from "@/components/lang-context"
 import { formatPlayerName, formatTeamName } from "@/lib/romanize"
 
 type LeaderRow = {
+  player_type?: "hitter" | "pitcher"
   player_name: string
   team: string
   PA?: number
+  OUTS?: number
   H?: number
   HR?: number | string
   RBI?: number
@@ -40,7 +44,7 @@ function LeaderCard({
 }: {
   title: string
   icon: React.ReactNode
-  items: { rank: number; name: string; team: string; value: string; sub?: string }[]
+  items: { rank: number; name: string; team: string; value: string; sub?: string; playerHref?: string }[]
   noDataText: string
 }) {
   return (
@@ -50,22 +54,36 @@ function LeaderCard({
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
       </div>
       <div className="divide-y divide-border">
-        {items.length === 0 && (
-          <div className="px-4 py-3 text-xs text-muted-foreground">{noDataText}</div>
-        )}
-        {items.map((item) => (
-          <div key={`${title}-${item.rank}-${item.name}`} className="flex items-center gap-3 px-4 py-2.5">
-            <span className="w-5 text-center text-xs font-mono font-bold">{item.rank}</span>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-medium text-foreground">{item.name}</span>
-                <span className="text-xs text-muted-foreground">{item.team}</span>
+        {items.length === 0 && <div className="px-4 py-3 text-xs text-muted-foreground">{noDataText}</div>}
+        {items.map((item) => {
+          const inner = (
+            <div className="flex w-full items-center gap-3 px-4 py-2.5">
+              <span className="w-5 text-center text-xs font-mono font-bold">{item.rank}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-medium text-foreground underline-offset-2 transition-colors hover:text-primary hover:underline">
+                    {item.name}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{item.team}</span>
+                </div>
+                {item.sub && <p className="text-xs text-muted-foreground">{item.sub}</p>}
               </div>
-              {item.sub && <p className="text-xs text-muted-foreground">{item.sub}</p>}
+              <span className="text-sm font-mono font-bold text-primary">{item.value}</span>
             </div>
-            <span className="text-sm font-mono font-bold text-primary">{item.value}</span>
-          </div>
-        ))}
+          )
+
+          return item.playerHref ? (
+            <Link
+              key={`${title}-${item.rank}-${item.name}`}
+              href={item.playerHref}
+              className="block transition-colors hover:bg-secondary/60"
+            >
+              {inner}
+            </Link>
+          ) : (
+            <div key={`${title}-${item.rank}-${item.name}`}>{inner}</div>
+          )
+        })}
       </div>
     </div>
   )
@@ -79,7 +97,8 @@ export function LeaderboardMini({ summary }: { summary: Summary }) {
     name: formatPlayerName(p.player_name, lang),
     team: formatTeamName(p.team, lang),
     value: formatTo3(p.AVG),
-    sub: `${p.H ?? "-"}안타 / ${p.PA ?? "-"}타석`,
+    sub: lang === "ko" ? `${p.H ?? "-"}안타 / ${p.PA ?? "-"}타석` : `${p.H ?? "-"} H / ${p.PA ?? "-"} PA`,
+    playerHref: `/player/${encodeURIComponent(p.player_name)}`,
   }))
 
   const hrLeaders = (summary.leaderboards.hr_top5 ?? []).map((p, i) => ({
@@ -87,7 +106,8 @@ export function LeaderboardMini({ summary }: { summary: Summary }) {
     name: formatPlayerName(p.player_name, lang),
     team: formatTeamName(p.team, lang),
     value: String(p.HR ?? "-"),
-    sub: `${p.RBI ?? "-"}타점 / OPS ${formatTo3(p.OPS)}`,
+    sub: lang === "ko" ? `${p.RBI ?? "-"}타점 / OPS ${formatTo3(p.OPS)}` : `${p.RBI ?? "-"} RBI / OPS ${formatTo3(p.OPS)}`,
+    playerHref: `/player/${encodeURIComponent(p.player_name)}`,
   }))
 
   const eraLeaders = (summary.leaderboards.era_top5 ?? []).map((p, i) => ({
@@ -95,7 +115,8 @@ export function LeaderboardMini({ summary }: { summary: Summary }) {
     name: formatPlayerName(p.player_name, lang),
     team: formatTeamName(p.team, lang),
     value: String(p.ERA ?? "-"),
-    sub: p.PA ? `${p.PA}IP` : undefined,
+    sub: p.OUTS ? `${(Number(p.OUTS) / 3).toFixed(1)} IP` : undefined,
+    playerHref: `/player/${encodeURIComponent(p.player_name)}?player_type=pitcher`,
   }))
 
   const warLeaders = (summary.leaderboards.war_top5 ?? []).map((p, i) => ({
@@ -103,16 +124,40 @@ export function LeaderboardMini({ summary }: { summary: Summary }) {
     name: formatPlayerName(p.player_name, lang),
     team: formatTeamName(p.team, lang),
     value: String(p.WAR ?? "-"),
+    playerHref:
+      p.player_type === "pitcher"
+        ? `/player/${encodeURIComponent(p.player_name)}?player_type=pitcher`
+        : `/player/${encodeURIComponent(p.player_name)}`,
   }))
 
   const noDataText = tr("lb.noData", lang)
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <LeaderCard title={tr("lb.avg", lang)} icon={<Trophy className="h-4 w-4 text-primary" />} items={avgLeaders} noDataText={noDataText} />
-      <LeaderCard title={tr("lb.hr", lang)}  icon={<Trophy className="h-4 w-4 text-kbo-highlight" />} items={hrLeaders} noDataText={noDataText} />
-      <LeaderCard title={tr("lb.era", lang)} icon={<TrendingUp className="h-4 w-4 text-chart-2" />} items={eraLeaders} noDataText={noDataText} />
-      <LeaderCard title={tr("lb.war", lang)} icon={<TrendingUp className="h-4 w-4 text-primary" />} items={warLeaders} noDataText={noDataText} />
+      <LeaderCard
+        title={tr("lb.avg", lang)}
+        icon={<Trophy className="h-4 w-4 text-primary" />}
+        items={avgLeaders}
+        noDataText={noDataText}
+      />
+      <LeaderCard
+        title={tr("lb.hr", lang)}
+        icon={<Trophy className="h-4 w-4 text-kbo-highlight" />}
+        items={hrLeaders}
+        noDataText={noDataText}
+      />
+      <LeaderCard
+        title={tr("lb.era", lang)}
+        icon={<TrendingUp className="h-4 w-4 text-chart-2" />}
+        items={eraLeaders}
+        noDataText={noDataText}
+      />
+      <LeaderCard
+        title={tr("lb.war", lang)}
+        icon={<TrendingUp className="h-4 w-4 text-primary" />}
+        items={warLeaders}
+        noDataText={noDataText}
+      />
     </div>
   )
 }
