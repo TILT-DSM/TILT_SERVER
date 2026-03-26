@@ -53,11 +53,11 @@ function LeaderCard({
         {icon}
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
       </div>
-      <div className="divide-y divide-border">
+      <div className="flex-1 flex flex-col divide-y divide-border">
         {items.length === 0 && <div className="px-4 py-3 text-xs text-muted-foreground">{noDataText}</div>}
         {items.map((item) => {
           const inner = (
-            <div className="flex w-full items-center gap-3 px-4 py-2.5">
+            <div className="flex-1 flex w-full items-center gap-3 px-4 py-2.5">
               <span className="w-5 text-center text-xs font-mono font-bold">{item.rank}</span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
@@ -76,12 +76,14 @@ function LeaderCard({
             <Link
               key={`${title}-${item.rank}-${item.name}`}
               href={item.playerHref}
-              className="block transition-colors hover:bg-secondary/60"
+              className="flex-1 flex flex-col transition-colors hover:bg-secondary/60"
             >
               {inner}
             </Link>
           ) : (
-            <div key={`${title}-${item.rank}-${item.name}`}>{inner}</div>
+            <div key={`${title}-${item.rank}-${item.name}`} className="flex-1 flex flex-col">
+              {inner}
+            </div>
           )
         })}
       </div>
@@ -97,7 +99,7 @@ export function LeaderboardMini({ summary }: { summary: Summary }) {
     name: formatPlayerName(p.player_name, lang),
     team: formatTeamName(p.team, lang),
     value: formatTo3(p.AVG),
-    sub: lang === "ko" ? `${p.H ?? "-"}안타 / ${p.PA ?? "-"}타석` : `${p.H ?? "-"} H / ${p.PA ?? "-"} PA`,
+    sub: `${p.H ?? "-"} ${tr("stat.h", lang)} / ${p.PA ?? "-"} ${tr("stat.pa", lang)}`,
     playerHref: `/player/${encodeURIComponent(p.player_name)}`,
   }))
 
@@ -106,7 +108,7 @@ export function LeaderboardMini({ summary }: { summary: Summary }) {
     name: formatPlayerName(p.player_name, lang),
     team: formatTeamName(p.team, lang),
     value: String(p.HR ?? "-"),
-    sub: lang === "ko" ? `${p.RBI ?? "-"}타점 / OPS ${formatTo3(p.OPS)}` : `${p.RBI ?? "-"} RBI / OPS ${formatTo3(p.OPS)}`,
+    sub: `${p.RBI ?? "-"} ${tr("stat.rbi", lang)} / OPS ${formatTo3(p.OPS)}`,
     playerHref: `/player/${encodeURIComponent(p.player_name)}`,
   }))
 
